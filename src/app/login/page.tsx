@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { EMAIL_DOMAIN } from '@/lib/constants'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -47,13 +48,18 @@ export default function LoginPage() {
       return
     }
 
-    if (profile.role === 'admin') {
-      router.refresh()
-      router.push('/admin')
-    } else {
-      router.refresh()
-      router.push('/dashboard')
+    const isSrm = email.trim().toLowerCase().endsWith(EMAIL_DOMAIN)
+    if (!isSrm && profile.role !== 'admin') {
+      await supabase.auth.signOut()
+      setError(`Only ${EMAIL_DOMAIN} accounts are allowed.`)
+      setLoading(false)
+      return
     }
+    router.refresh()
+    if (profile.role === 'admin') { router.push('/admin'); return }
+    const { data: prof } = await supabase
+      .from('student_profiles').select('user_id').eq('user_id', data.user.id).maybeSingle()
+    router.push(prof ? '/opportunities' : '/onboarding')
   }
 
   return (
@@ -95,7 +101,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="you@srmist.edu.in"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>

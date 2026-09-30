@@ -50,7 +50,7 @@ export default function Navbar() {
   }
 
   // Hide navbar on auth pages
-  if (pathname === '/login' || pathname === '/signup' || pathname === '/') return null
+  if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname === '/onboarding') return null
 
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-800 bg-[#0b0f1a]/90 backdrop-blur-md">

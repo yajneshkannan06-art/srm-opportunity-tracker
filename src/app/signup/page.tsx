@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { EMAIL_DOMAIN } from '@/lib/constants'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -19,8 +20,15 @@ export default function SignupPage() {
     setError(null)
     setInfo(null)
 
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail.endsWith(EMAIL_DOMAIN)) {
+      setError(`Only ${EMAIL_DOMAIN} email addresses can sign up.`)
+      setLoading(false)
+      return
+    }
+
     // 1. Create the auth user
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+    const { data, error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password })
 
     if (signUpError) {
       setError(signUpError.message)
@@ -36,7 +44,7 @@ export default function SignupPage() {
 
     // Detect "email confirmation required" case:
     // Supabase returns a user but with identities:[] when confirmation is pending.
-    const needsConfirmation = Array.isArray(data.user.identities) && data.user.identities.length === 0
+    const needsConfirmation = !data.session
 
     if (needsConfirmation) {
       setInfo('Almost there! Check your inbox and click the confirmation link to activate your account.')
@@ -44,25 +52,9 @@ export default function SignupPage() {
       return
     }
 
-    // 2. Insert matching row in public users table (only runs if session is live)
-    const { error: insertError } = await supabase.from('users').insert({
-      id: data.user.id,
-      email: data.user.email,
-      role: 'student',
-    })
-
-    if (insertError) {
-      // Non-fatal if the row already exists (e.g. duplicate signup)
-      if (!insertError.message.includes('duplicate') && !insertError.code?.includes('23505')) {
-        setError('Account created but profile setup failed: ' + insertError.message)
-        setLoading(false)
-        return
-      }
-    }
-
-    // 3. Redirect to dashboard
+    // 2. Redirect to onboarding (DB trigger handles the users row insert)
     router.refresh()
-    router.push('/dashboard')
+    router.push('/onboarding')
   }
 
   return (
@@ -115,7 +107,7 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="you@srmist.edu.in"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>
