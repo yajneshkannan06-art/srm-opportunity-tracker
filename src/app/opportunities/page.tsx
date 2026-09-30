@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDistanceToNow, isPast } from 'date-fns'
+import { DEPARTMENTS } from '@/lib/constants'
+import { isEligible, scoreOpportunity, type Profile } from '@/lib/recommend'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +30,8 @@ interface Opportunity {
   organization: string
   external_link: string
   created_at: string
+  departments: string[]
+  is_free: boolean
 }
 
 interface UserTracking {
@@ -268,6 +273,7 @@ function SkeletonCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OpportunitiesPage() {
+  const router = useRouter()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [trackingMap, setTrackingMap] = useState<Record<string, UserTracking>>({})
   const [userId, setUserId] = useState<string | null>(null)
@@ -278,6 +284,9 @@ export default function OpportunitiesPage() {
   const [typeFilter, setTypeFilter] = useState<OpportunityType | 'all'>('all')
   const [skillSearch, setSkillSearch] = useState('')
   const [sort, setSort] = useState<SortOption>('deadline')
+  const [deptFilter, setDeptFilter] = useState<string[]>([])
+  const [freeOnly, setFreeOnly] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -290,10 +299,17 @@ export default function OpportunitiesPage() {
         const currentUserId = user?.id ?? null
         setUserId(currentUserId)
 
+        if (currentUserId) {
+          const { data: prof } = await supabase.from('student_profiles')
+            .select('department, interests, skills').eq('user_id', currentUserId).maybeSingle()
+          if (!prof) { router.replace('/onboarding'); return }
+          setProfile(prof)
+        }
+
         // 2. Fetch opportunities
         const { data: opps, error: fetchError } = await supabase
           .from('opportunities')
-          .select('id, title, type, description, skills, deadline, organization, external_link, created_at')
+          .select('id, title, type, description, skills, deadline, organization, external_link, created_at, departments, is_free')
 
         if (fetchError) {
           setError(fetchError.message)
@@ -478,6 +494,16 @@ export default function OpportunitiesPage() {
       )
     }
 
+    // Free-only filter
+    if (freeOnly) result = result.filter((o) => o.is_free)
+
+    // Department filter
+    if (deptFilter.length > 0) {
+      result = result.filter((o) =>
+        o.departments?.some((d) => deptFilter.includes(d))
+      )
+    }
+
     // Sort
     result.sort((a, b) => {
       if (sort === 'deadline') {
@@ -487,7 +513,7 @@ export default function OpportunitiesPage() {
     })
 
     return result
-  }, [opportunities, typeFilter, skillSearch, sort])
+  }, [opportunities, typeFilter, skillSearch, sort, freeOnly, deptFilter])
 
   const totalCount = opportunities.length
 
