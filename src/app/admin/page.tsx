@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { DEPARTMENTS } from '@/lib/constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ interface Opportunity {
   deadline: string
   external_link: string
   created_at: string
+  departments: string[]
+  is_free: boolean
 }
 
 const EMPTY_FORM = {
@@ -28,6 +31,8 @@ const EMPTY_FORM = {
   skills: '',
   deadline: '',
   external_link: '',
+  departments: [] as string[],
+  is_free: false,
 }
 
 const TYPE_OPTIONS: OpportunityType[] = ['internship', 'workshop', 'hackathon', 'certification', 'competition']
@@ -114,6 +119,8 @@ export default function AdminPage() {
       skills: Array.isArray(opp.skills) ? opp.skills.join(', ') : '',
       deadline: opp.deadline ? opp.deadline.split('T')[0] : '',
       external_link: opp.external_link ?? '',
+      departments: opp.departments ?? [],
+      is_free: opp.is_free ?? false,
     })
     setFormError(null)
     setFormSuccess(null)
@@ -127,7 +134,7 @@ export default function AdminPage() {
     setFormSuccess(null)
   }
 
-  function field(key: keyof typeof EMPTY_FORM, value: string) {
+  function field(key: keyof Pick<typeof EMPTY_FORM, 'title' | 'type' | 'organization' | 'description' | 'skills' | 'deadline' | 'external_link'>, value: string) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
@@ -156,6 +163,8 @@ export default function AdminPage() {
       skills: skillsArray,
       deadline: new Date(form.deadline).toISOString(),
       external_link: form.external_link.trim(),
+      departments: form.departments,
+      is_free: form.is_free,
     }
 
     let error
@@ -291,6 +300,32 @@ export default function AdminPage() {
               <input id="admin-skills" type="text" className={inputClass} placeholder="e.g. React, TypeScript, Node.js" value={form.skills} onChange={e => field('skills', e.target.value)} />
             </div>
 
+            {/* Free of cost */}
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                <input type="checkbox" checked={form.is_free}
+                  onChange={(e) => setForm((f) => ({ ...f, is_free: e.target.checked }))} />
+                Free of cost
+              </label>
+            </div>
+
+            {/* Eligible departments */}
+            <div className="sm:col-span-2">
+              <p className="text-sm text-slate-300 mb-2">Eligible departments <span className="text-slate-500">(none selected = all)</span></p>
+              <div className="flex flex-wrap gap-2">
+                {DEPARTMENTS.map((d) => (
+                  <label key={d} className="flex items-center gap-1.5 text-xs text-slate-300 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 cursor-pointer">
+                    <input type="checkbox" checked={form.departments.includes(d)}
+                      onChange={() => setForm((f) => ({
+                        ...f,
+                        departments: f.departments.includes(d) ? f.departments.filter((x) => x !== d) : [...f.departments, d],
+                      }))} />
+                    {d}
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Description */}
             <div className="sm:col-span-2">
               <label className={labelClass}>Description</label>
@@ -365,7 +400,12 @@ export default function AdminPage() {
                   {opportunities.map(opp => (
                     <tr key={opp.id} className="hover:bg-[#1b254a]/50 transition-colors group">
                       <td className="px-6 py-4 text-white font-medium max-w-[220px]">
-                        <div className="truncate">{opp.title}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{opp.title}</span>
+                          {opp.is_free && (
+                            <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-500/15 border border-emerald-500/30">FREE</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4 hidden sm:table-cell">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${TYPE_COLORS[opp.type] ?? ''}`}>
