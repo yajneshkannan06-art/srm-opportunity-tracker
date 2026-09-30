@@ -122,21 +122,26 @@ function OpportunityCard({
   tracking,
   onToggleBookmark,
   onChangeStatus,
+  matchReasons,
 }: {
   opp: Opportunity
   tracking?: UserTracking
   onToggleBookmark: (oppId: string, currentBookmarked: boolean) => void
   onChangeStatus: (oppId: string, newStatus: OpportunityStatus) => void
+  matchReasons?: string[]
 }) {
   const isBookmarked = tracking?.is_bookmarked ?? false
   const status = (tracking?.status as OpportunityStatus) ?? ''
 
   return (
     <article className="group relative flex flex-col bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 hover:border-cyan-500/40 hover:bg-slate-800/80 transition-all duration-200 hover:shadow-[0_0_24px_rgba(6,182,212,0.08)]">
-      {/* Top row: Type badge, Deadline & Bookmark */}
+      {/* Top row: Type badge, FREE badge, Deadline & Bookmark */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <Link href={`/opportunities/${opp.id}`} className="flex-1">
+        <Link href={`/opportunities/${opp.id}`} className="flex-1 flex items-center gap-2">
           <TypeBadge type={opp.type} />
+          {opp.is_free && (
+            <span className="text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-2 py-0.5">FREE</span>
+          )}
         </Link>
         <div className="flex items-center gap-2">
           <DeadlineBadge iso={opp.deadline} />
@@ -169,6 +174,10 @@ function OpportunityCard({
 
       {/* Clickable body → detail page */}
       <Link href={`/opportunities/${opp.id}`} className="flex-1 flex flex-col min-w-0">
+        {/* Match reasons */}
+        {matchReasons && matchReasons.length > 0 && (
+          <p className="text-[11px] text-cyan-300 mb-2">✨ Matches: {matchReasons.slice(0, 3).join(', ')}</p>
+        )}
         {/* Title */}
         <h2 className="text-base font-semibold text-white leading-snug mb-1 group-hover:text-cyan-100 transition-colors">
           {opp.title}
@@ -497,10 +506,10 @@ export default function OpportunitiesPage() {
     // Free-only filter
     if (freeOnly) result = result.filter((o) => o.is_free)
 
-    // Department filter
+    // Department filter — opps with no departments listed are shown to everyone
     if (deptFilter.length > 0) {
       result = result.filter((o) =>
-        o.departments?.some((d) => deptFilter.includes(d))
+        !o.departments?.length || o.departments.some((d) => deptFilter.includes(d))
       )
     }
 
@@ -514,6 +523,16 @@ export default function OpportunitiesPage() {
 
     return result
   }, [opportunities, typeFilter, skillSearch, sort, freeOnly, deptFilter])
+
+  const recommended = useMemo(() => {
+    if (!profile) return []
+    return opportunities
+      .filter((o) => !isPast(new Date(o.deadline)) && isEligible(o, profile.department))
+      .map((o) => ({ opp: o, ...scoreOpportunity(o, profile) }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(a.opp.deadline).getTime() - new Date(b.opp.deadline).getTime())
+      .slice(0, 6)
+  }, [opportunities, profile])
 
   const totalCount = opportunities.length
 
@@ -594,10 +613,41 @@ export default function OpportunitiesPage() {
             )}
           </div>
 
+          {/* Free-only toggle */}
+          <label className="inline-flex items-center gap-2 text-sm text-slate-300 bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={freeOnly}
+              onChange={(e) => setFreeOnly(e.target.checked)}
+              className="accent-emerald-400"
+            />
+            Free only
+          </label>
+
+          {/* Department filter */}
+          <details className="relative">
+            <summary className="list-none cursor-pointer text-sm text-slate-300 bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 select-none">
+              Departments{deptFilter.length > 0 && ` (${deptFilter.length})`}
+            </summary>
+            <div className="absolute z-20 mt-2 w-56 max-h-64 overflow-auto bg-slate-900 border border-slate-700 rounded-xl p-2 shadow-xl">
+              {DEPARTMENTS.map((d) => (
+                <label key={d} className="flex items-center gap-2 px-2 py-1 text-sm text-slate-300 hover:bg-slate-800 rounded-lg cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={deptFilter.includes(d)}
+                    onChange={() => setDeptFilter((p) => p.includes(d) ? p.filter((x) => x !== d) : [...p, d])}
+                    className="accent-cyan-400"
+                  />
+                  {d}
+                </label>
+              ))}
+            </div>
+          </details>
+
           {/* Active filter pill */}
-          {(typeFilter !== 'all' || skillSearch) && (
+          {(typeFilter !== 'all' || skillSearch || freeOnly || deptFilter.length > 0) && (
             <button
-              onClick={() => { setTypeFilter('all'); setSkillSearch('') }}
+              onClick={() => { setTypeFilter('all'); setSkillSearch(''); setFreeOnly(false); setDeptFilter([]) }}
               className="self-start sm:self-center inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 border border-slate-700 rounded-full px-3 py-1.5 transition"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -616,6 +666,25 @@ export default function OpportunitiesPage() {
             </svg>
             Failed to load opportunities: {error}
           </div>
+        )}
+
+        {/* ── Recommended ── */}
+        {!loading && recommended.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-lg font-bold text-white mb-4">✨ Recommended for you</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommended.map(({ opp, reasons }) => (
+                <OpportunityCard
+                  key={opp.id}
+                  opp={opp}
+                  tracking={trackingMap[opp.id]}
+                  onToggleBookmark={handleToggleBookmark}
+                  onChangeStatus={handleChangeStatus}
+                  matchReasons={reasons}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* ── Grid ── */}
@@ -642,6 +711,7 @@ export default function OpportunitiesPage() {
                 tracking={trackingMap[opp.id]}
                 onToggleBookmark={handleToggleBookmark}
                 onChangeStatus={handleChangeStatus}
+                matchReasons={undefined}
               />
             ))}
           </div>
