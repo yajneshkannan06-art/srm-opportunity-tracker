@@ -203,8 +203,8 @@ export default function AdminPage() {
   // ── Loading / access denied ──
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-[#0b0f1a] flex items-center justify-center">
-        <svg className="animate-spin w-10 h-10 text-purple-400" viewBox="0 0 24 24" fill="none">
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <svg className="animate-spin w-10 h-10 text-primary" viewBox="0 0 24 24" fill="none">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
         </svg>
@@ -212,20 +212,20 @@ export default function AdminPage() {
     )
   }
 
-  const inputClass = 'w-full bg-[#141c3d] border border-[#2a3566] text-white text-sm rounded-xl px-4 py-2.5 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition'
-  const labelClass = 'block text-sm font-medium text-slate-300 mb-1.5'
+  const inputClass = 'input'
+  const labelClass = 'block text-sm font-medium text-ink mb-1.5'
 
   return (
-    <div className="min-h-screen bg-[#0b1330]">
+    <div className="min-h-screen bg-base">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
 
         {/* ── Page Header ── */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-            <p className="text-slate-500 text-sm mt-0.5">Signed in as <span className="text-purple-400">{adminEmail}</span></p>
+            <h1 className="text-2xl font-display font-bold text-ink">Admin Panel</h1>
+            <p className="text-muted text-sm mt-0.5">Signed in as <span className="text-primary">{adminEmail}</span></p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primaryHover text-xs font-semibold">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
@@ -234,8 +234,8 @@ export default function AdminPage() {
         </div>
 
         {/* ── Add / Edit Form ── */}
-        <div className="bg-[#141c3d] border border-[#2a3566] rounded-2xl p-6 sm:p-8 mb-10">
-          <h2 className="text-lg font-semibold text-white mb-6">
+        <div className="card bg-surface p-6 sm:p-8 mb-10">
+          <h2 className="text-lg font-semibold text-ink mb-6">
             {editingId ? '✏️ Edit Opportunity' : '➕ Add New Opportunity'}
           </h2>
 
@@ -338,7 +338,7 @@ export default function AdminPage() {
                 id="admin-submit-btn"
                 type="submit"
                 disabled={formLoading}
-                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl transition-all flex items-center gap-2"
+                className="btn-primary"
               >
                 {formLoading && (
                   <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -349,7 +349,7 @@ export default function AdminPage() {
                 {editingId ? 'Save changes' : 'Add opportunity'}
               </button>
               {editingId && (
-                <button type="button" onClick={cancelEdit} className="text-slate-400 hover:text-white px-4 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-sm">
+                <button type="button" onClick={cancelEdit} className="btn-secondary text-sm">
                   Cancel
                 </button>
               )}
@@ -368,11 +368,11 @@ export default function AdminPage() {
         )}
 
         {/* ── Opportunities Table ── */}
-        <div className="bg-[#141c3d] border border-[#2a3566] rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#2a3566] flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">
+        <div className="card bg-surface overflow-hidden">
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink">
               All Opportunities
-              <span className="ml-2 text-xs text-slate-500 font-normal">({opportunities.length})</span>
+              <span className="ml-2 text-xs text-muted font-normal">({opportunities.length})</span>
             </h2>
             {loadingOpps && (
               <svg className="animate-spin w-4 h-4 text-slate-500" viewBox="0 0 24 24" fill="none">
@@ -383,23 +383,23 @@ export default function AdminPage() {
           </div>
 
           {opportunities.length === 0 && !loadingOpps ? (
-            <div className="py-16 text-center text-slate-600 text-sm">No opportunities yet. Add one above!</div>
+            <div className="py-16 text-center text-muted text-sm">No opportunities yet. Add one above!</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#2a3566] text-left">
-                    <th className="px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Title</th>
-                    <th className="px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">Type</th>
-                    <th className="px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">Organization</th>
-                    <th className="px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">Deadline</th>
-                    <th className="px-6 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                  <tr className="border-b border-line text-left">
+                    <th className="px-6 py-3 text-xs font-medium text-muted uppercase tracking-wider">Title</th>
+                    <th className="px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider hidden sm:table-cell">Type</th>
+                    <th className="px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider hidden md:table-cell">Organization</th>
+                    <th className="px-4 py-3 text-xs font-medium text-muted uppercase tracking-wider hidden lg:table-cell">Deadline</th>
+                    <th className="px-6 py-3 text-xs font-medium text-muted uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#2a3566]/50">
+                <tbody className="divide-y divide-line/40">
                   {opportunities.map(opp => (
-                    <tr key={opp.id} className="hover:bg-[#1b254a]/50 transition-colors group">
-                      <td className="px-6 py-4 text-white font-medium max-w-[220px]">
+                    <tr key={opp.id} className="hover:bg-surface2 transition-colors group">
+                      <td className="px-6 py-4 text-ink font-medium max-w-[220px]">
                         <div className="flex items-center gap-2">
                           <span className="truncate">{opp.title}</span>
                           {opp.is_free && (
@@ -412,10 +412,10 @@ export default function AdminPage() {
                           {opp.type}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-slate-400 hidden md:table-cell max-w-[160px]">
+                      <td className="px-4 py-4 text-muted hidden md:table-cell max-w-[160px]">
                         <div className="truncate">{opp.organization}</div>
                       </td>
-                      <td className="px-4 py-4 text-slate-400 hidden lg:table-cell">
+                      <td className="px-4 py-4 text-muted hidden lg:table-cell">
                         {opp.deadline ? new Date(opp.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td className="px-6 py-4 text-right">
