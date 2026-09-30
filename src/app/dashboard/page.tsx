@@ -22,28 +22,28 @@ interface TrackedOpportunity {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function urgencyColor(deadline: string): { color: string; label: string; days: number } {
+function urgencyColor(deadline: string): { cls: string; label: string; days: number } {
   const date = new Date(deadline)
-  if (isPast(date)) return { color: '#a9b4d0', label: 'Closed', days: -1 }
+  if (isPast(date)) return { cls: 'text-muted', label: 'Closed', days: -1 }
   const days = differenceInCalendarDays(date, new Date())
-  if (days <= 3) return { color: '#ff6b4a', label: `${days}d left`, days }
-  if (days <= 7) return { color: '#f2c94c', label: `${days}d left`, days }
-  return { color: '#2fe6d6', label: formatDistanceToNow(date, { addSuffix: true }), days }
+  if (days <= 3) return { cls: 'text-danger', label: `${days}d left`, days }
+  if (days <= 7) return { cls: 'text-warning', label: `${days}d left`, days }
+  return { cls: 'text-accent', label: formatDistanceToNow(date, { addSuffix: true }), days }
 }
 
 const TYPE_BADGE: Record<string, { bg: string; text: string; border: string }> = {
-  internship:    { bg: 'rgba(47,230,214,0.12)',  text: '#2fe6d6', border: 'rgba(47,230,214,0.3)' },
-  workshop:      { bg: 'rgba(167,139,250,0.12)', text: '#a78bfa', border: 'rgba(167,139,250,0.3)' },
-  hackathon:     { bg: 'rgba(251,146,60,0.12)',  text: '#fb923c', border: 'rgba(251,146,60,0.3)' },
-  certification: { bg: 'rgba(52,211,153,0.12)',  text: '#34d399', border: 'rgba(52,211,153,0.3)' },
-  competition:   { bg: 'rgba(248,113,113,0.12)', text: '#f87171', border: 'rgba(248,113,113,0.3)' },
+  internship:    { bg: 'bg-accent/10',    text: 'text-accent',    border: 'border-accent/25' },
+  workshop:      { bg: 'bg-violet-400/10',text: 'text-violet-300',border: 'border-violet-400/25' },
+  hackathon:     { bg: 'bg-warning/10',   text: 'text-warning',   border: 'border-warning/25' },
+  certification: { bg: 'bg-success/10',   text: 'text-success',   border: 'border-success/25' },
+  competition:   { bg: 'bg-danger/10',    text: 'text-danger',    border: 'border-danger/25' },
 }
 
-const STATUS_META: Record<DBStatus, { label: string; color: string; bg: string; border: string }> = {
-  interested:  { label: 'Interested',  color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.3)' },
-  applied:     { label: 'Applied',     color: '#f2c94c', bg: 'rgba(242,201,76,0.12)',  border: 'rgba(242,201,76,0.3)' },
-  shortlisted: { label: 'Shortlisted', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.3)' },
-  completed:   { label: 'Completed',   color: '#2fe6d6', bg: 'rgba(47,230,214,0.12)',  border: 'rgba(47,230,214,0.3)' },
+const STATUS_META: Record<DBStatus, { label: string; text: string; bg: string; border: string }> = {
+  interested:  { label: 'Interested',  text: 'text-primary',    bg: 'bg-primary/10',  border: 'border-primary/25' },
+  applied:     { label: 'Applied',     text: 'text-warning',    bg: 'bg-warning/10',  border: 'border-warning/25' },
+  shortlisted: { label: 'Shortlisted', text: 'text-violet-300', bg: 'bg-violet-400/10',border: 'border-violet-400/25' },
+  completed:   { label: 'Completed',   text: 'text-success',    bg: 'bg-success/10',  border: 'border-success/25' },
 }
 
 const STAT_ICONS: Record<string, string> = {
@@ -56,19 +56,17 @@ const STAT_ICONS: Record<string, string> = {
 
 // ─── Stat Card ─────────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, count, color, bg, border }: {
+function StatCard({ icon, label, count, textCls, bgCls, borderCls }: {
   icon: string; label: string; count: number
-  color: string; bg: string; border: string
+  textCls: string; bgCls: string; borderCls: string
 }) {
   return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: '16px', padding: '20px 24px', flex: '1 1 140px', minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <span style={{ fontSize: '22px' }}>{icon}</span>
-        <span style={{ fontSize: '28px', fontFamily: 'var(--font-sora)', fontWeight: 700, color: '#fff' }}>{count}</span>
+    <div className={`card flex-1 basis-36 min-w-0 p-5 ${bgCls} border ${borderCls}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-2xl">{icon}</span>
+        <span className="text-3xl font-display font-bold text-ink">{count}</span>
       </div>
-      <div style={{ fontSize: '13px', fontFamily: 'var(--font-inter)', fontWeight: 500, color }}>
-        {label}
-      </div>
+      <div className={`text-sm font-medium ${textCls}`}>{label}</div>
     </div>
   )
 }
@@ -81,58 +79,38 @@ function DeadlineRow({ item }: { item: TrackedOpportunity }) {
   const statusM = item.status ? STATUS_META[item.status] : null
 
   return (
-    <Link href={`/opportunities/${item.opportunity_id}`} style={{ textDecoration: 'none' }}>
-      <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: '14px',
-          padding: '13px 18px', background: '#141c3d',
-          border: '1px solid #2a3566', borderRadius: '14px',
-          transition: 'border-color 0.15s, background 0.15s', cursor: 'pointer',
-        }}
-        onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2fe6d6'; (e.currentTarget as HTMLDivElement).style.background = '#1b254a' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2a3566'; (e.currentTarget as HTMLDivElement).style.background = '#141c3d' }}
-      >
+    <Link href={`/opportunities/${item.opportunity_id}`} className="block group">
+      <div className="flex items-center gap-3 px-4 py-3 bg-surface2 border border-line rounded-xl transition-all duration-150 group-hover:border-accent/30 group-hover:bg-surface cursor-pointer">
         {/* Type badge */}
         {typeBadge && (
-          <span style={{
-            fontSize: '10px', fontFamily: 'var(--font-inter)', fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-            color: typeBadge.text, background: typeBadge.bg, border: `1px solid ${typeBadge.border}`,
-            borderRadius: '100px', padding: '3px 9px', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>{item.type}</span>
+          <span className={`badge ${typeBadge.bg} ${typeBadge.text} ${typeBadge.border} shrink-0`}>
+            {item.type}
+          </span>
         )}
 
         {/* Title + org */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontSize: '14px', fontFamily: 'var(--font-inter)', fontWeight: 600,
-            color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px',
-          }}>{item.title}</p>
-          <p style={{
-            fontSize: '12px', fontFamily: 'var(--font-inter)', color: '#a9b4d0',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{item.organization}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-ink truncate mb-0.5">{item.title}</p>
+          <p className="text-xs text-muted truncate">{item.organization}</p>
         </div>
 
         {/* Status pill */}
         {statusM && (
-          <span style={{
-            fontSize: '11px', fontFamily: 'var(--font-inter)', fontWeight: 600,
-            color: statusM.color, background: statusM.bg, border: `1px solid ${statusM.border}`,
-            borderRadius: '100px', padding: '3px 10px', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>{statusM.label}</span>
+          <span className={`badge ${statusM.bg} ${statusM.text} ${statusM.border} shrink-0`}>
+            {statusM.label}
+          </span>
         )}
 
         {/* Urgency */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <div className="flex items-center gap-1.5 shrink-0">
           {urg.days >= 0 && urg.days <= 3 && (
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: urg.color, display: 'inline-block', animation: 'pulse 2s infinite' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-danger inline-block animate-pulse" />
           )}
-          <span style={{ fontSize: '12px', fontFamily: 'var(--font-inter)', fontWeight: 600, color: urg.color }}>{urg.label}</span>
+          <span className={`text-xs font-semibold ${urg.cls}`}>{urg.label}</span>
         </div>
 
         {/* Arrow */}
-        <svg style={{ width: '14px', height: '14px', color: '#2a3566', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-3.5 h-3.5 text-line shrink-0 group-hover:text-muted transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -147,46 +125,32 @@ function TrackerRow({ item, onChangeStatus }: {
   onChangeStatus: (trackingId: string, oppId: string, newStatus: DBStatus | null) => void
 }) {
   const typeBadge = TYPE_BADGE[item.type]
+  const statusM = item.status ? STATUS_META[item.status] : null
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '13px 18px', background: '#141c3d',
-      border: '1px solid #2a3566', borderRadius: '14px',
-    }}>
+    <div className="flex items-center gap-3 px-4 py-3 bg-surface2 border border-line rounded-xl">
       {typeBadge && (
-        <span style={{
-          fontSize: '10px', fontFamily: 'var(--font-inter)', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.06em',
-          color: typeBadge.text, background: typeBadge.bg, border: `1px solid ${typeBadge.border}`,
-          borderRadius: '100px', padding: '3px 9px', whiteSpace: 'nowrap', flexShrink: 0,
-        }}>{item.type}</span>
+        <span className={`badge ${typeBadge.bg} ${typeBadge.text} ${typeBadge.border} shrink-0`}>
+          {item.type}
+        </span>
       )}
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Link href={`/opportunities/${item.opportunity_id}`} style={{ textDecoration: 'none' }}>
-          <p style={{
-            fontSize: '14px', fontFamily: 'var(--font-inter)', fontWeight: 600, color: '#ffffff',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px',
-          }}>{item.title}</p>
+      <div className="flex-1 min-w-0">
+        <Link href={`/opportunities/${item.opportunity_id}`} className="block">
+          <p className="text-sm font-semibold text-ink truncate mb-0.5 hover:text-primaryHover transition-colors">{item.title}</p>
         </Link>
-        <p style={{ fontSize: '12px', color: '#a9b4d0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {item.organization}
-        </p>
+        <p className="text-xs text-muted truncate">{item.organization}</p>
       </div>
 
       {/* Status dropdown */}
       <select
         value={item.status ?? ''}
         onChange={e => onChangeStatus(item.tracking_id, item.opportunity_id, (e.target.value as DBStatus) || null)}
-        style={{
-          fontSize: '12px', fontFamily: 'var(--font-inter)', fontWeight: 600,
-          background: item.status ? STATUS_META[item.status].bg : 'rgba(42,53,102,0.6)',
-          color: item.status ? STATUS_META[item.status].color : '#a9b4d0',
-          border: `1px solid ${item.status ? STATUS_META[item.status].border : '#2a3566'}`,
-          borderRadius: '8px', padding: '5px 10px', cursor: 'pointer',
-          outline: 'none', flexShrink: 0, appearance: 'none',
-        }}
+        className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border cursor-pointer focus:outline-none shrink-0 transition-all duration-150 ${
+          statusM
+            ? `${statusM.bg} ${statusM.text} ${statusM.border}`
+            : 'bg-surface border-line text-muted'
+        }`}
       >
         <option value="">No status</option>
         <option value="interested">Interested</option>
@@ -202,30 +166,24 @@ function TrackerRow({ item, onChangeStatus }: {
 
 function SkeletonRow() {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px',
-      background: '#141c3d', border: '1px solid #2a3566', borderRadius: '14px',
-    }}>
-      <div style={{ width: '56px', height: '20px', borderRadius: '100px', background: '#2a3566' }} />
-      <div style={{ flex: 1 }}>
-        <div style={{ height: '12px', width: '55%', background: '#2a3566', borderRadius: '6px', marginBottom: '6px' }} />
-        <div style={{ height: '10px', width: '35%', background: '#1b254a', borderRadius: '6px' }} />
+    <div className="flex items-center gap-3 px-4 py-3 bg-surface2 border border-line rounded-xl animate-pulse">
+      <div className="w-14 h-5 rounded-full bg-line" />
+      <div className="flex-1">
+        <div className="h-3 w-[55%] bg-line rounded mb-1.5" />
+        <div className="h-2.5 w-[35%] bg-surface rounded" />
       </div>
-      <div style={{ height: '22px', width: '70px', background: '#2a3566', borderRadius: '100px' }} />
+      <div className="h-5 w-16 bg-line rounded-full" />
     </div>
   )
 }
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title, accent, action }: { title: string; accent: string; action?: React.ReactNode }) {
+function SectionHeader({ title, accentCls, action }: { title: string; accentCls: string; action?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-      <h2 style={{
-        fontFamily: 'var(--font-sora)', fontSize: '16px', fontWeight: 700, color: '#ffffff',
-        letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '10px',
-      }}>
-        <span style={{ width: '4px', height: '18px', background: accent, borderRadius: '100px', display: 'inline-block' }} />
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="font-display text-base font-bold text-ink flex items-center gap-2.5">
+        <span className={`w-1 h-5 rounded-full ${accentCls} inline-block`} />
         {title}
       </h2>
       {action}
@@ -337,168 +295,148 @@ export default function DashboardPage() {
   const firstName = userEmail?.split('@')[0] ?? 'Student'
 
   return (
-    <>
+    <div className="min-h-screen bg-base">
       <style>{`
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
         .dash-in { animation: fadeUp 0.4s ease both; }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: '#0b1330', fontFamily: 'var(--font-inter)', color: '#ffffff' }}>
-        <main style={{ maxWidth: '1024px', margin: '0 auto', padding: '40px 24px 80px' }}>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 pb-20">
 
-          {/* Greeting */}
-          <div className="dash-in" style={{ marginBottom: '36px', animationDelay: '0ms' }}>
-            <h1 style={{
-              fontFamily: 'var(--font-sora)', fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800,
-              color: '#ffffff', letterSpacing: '-0.03em', marginBottom: '6px',
-            }}>
-              Welcome back,{' '}
-              <span style={{ background: 'linear-gradient(90deg, #2fe6d6, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                {firstName}
-              </span>{' '}👋
-            </h1>
-            <p style={{ fontSize: '14px', color: '#a9b4d0' }}>
-              {hasData
-                ? `You're tracking ${tracked.length} opportunit${tracked.length === 1 ? 'y' : 'ies'}.`
-                : 'Start tracking opportunities to see your progress here.'}
-            </p>
+        {/* Greeting */}
+        <div className="dash-in mb-9" style={{ animationDelay: '0ms' }}>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink tracking-tight mb-1.5">
+            Welcome back,{' '}
+            <span className="bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">
+              {firstName}
+            </span>{' '}👋
+          </h1>
+          <p className="text-sm text-muted">
+            {hasData
+              ? `You're tracking ${tracked.length} opportunit${tracked.length === 1 ? 'y' : 'ies'}.`
+              : 'Start tracking opportunities to see your progress here.'}
+          </p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="flex items-center gap-3 bg-danger/10 border border-danger/30 text-danger text-sm rounded-xl px-4 py-3 mb-6">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading ? (
+          <div className="flex flex-col gap-8">
+            <div className="flex gap-3 flex-wrap">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="flex-1 basis-36 h-24 card bg-surface animate-pulse" />
+              ))}
+            </div>
+            <div className="flex flex-col gap-2">
+              {[1,2,3,4].map(i => <SkeletonRow key={i} />)}
+            </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div style={{ background: 'rgba(255,107,74,0.1)', border: '1px solid rgba(255,107,74,0.3)', borderRadius: '12px', padding: '14px 18px', color: '#ff6b4a', fontSize: '14px', marginBottom: '24px' }}>
-              ⚠️ {error}
-            </div>
-          )}
+        ) : !hasData ? (
+          /* Empty state */
+          <div className="dash-in flex flex-col items-center justify-center text-center py-20" style={{ animationDelay: '60ms' }}>
+            <div className="w-20 h-20 rounded-2xl card flex items-center justify-center text-4xl mb-6">🔍</div>
+            <h2 className="font-display text-xl font-bold text-ink mb-2">Nothing tracked yet</h2>
+            <p className="text-sm text-muted max-w-sm leading-relaxed mb-7">
+              Bookmark opportunities or set a status on the Browse page — they&apos;ll show up here with deadline reminders.
+            </p>
+            <Link href="/opportunities" className="btn-primary">
+              Browse Opportunities →
+            </Link>
+          </div>
 
-          {/* Loading */}
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                {[1,2,3,4].map(i => (
-                  <div key={i} style={{ flex: '1 1 140px', height: '100px', background: '#141c3d', border: '1px solid #2a3566', borderRadius: '16px', animation: 'pulse 1.5s ease infinite' }} />
+        ) : (
+          <>
+            {/* ── Stat Cards ── */}
+            <section className="dash-in mb-12" style={{ animationDelay: '40ms' }}>
+              <SectionHeader title="Overview" accentCls="bg-gradient-to-b from-accent to-primary" />
+              <div className="flex gap-3 flex-wrap">
+                <StatCard icon={STAT_ICONS.bookmarked}  label="Bookmarked"  count={bookmarkedCount}  textCls="text-warning"    bgCls="bg-warning/8"    borderCls="border-warning/20" />
+                <StatCard icon={STAT_ICONS.applied}     label="Applied"     count={appliedCount}     textCls="text-primary"   bgCls="bg-primary/8"    borderCls="border-primary/20" />
+                <StatCard icon={STAT_ICONS.shortlisted} label="Shortlisted" count={shortlistedCount} textCls="text-violet-300" bgCls="bg-violet-400/8" borderCls="border-violet-400/20" />
+                <StatCard icon={STAT_ICONS.completed}   label="Completed"   count={completedCount}   textCls="text-success"   bgCls="bg-success/8"    borderCls="border-success/20" />
+              </div>
+            </section>
+
+            {/* ── Upcoming Deadlines ── */}
+            <section className="dash-in mb-12" style={{ animationDelay: '100ms' }}>
+              <SectionHeader
+                title="Upcoming Deadlines"
+                accentCls="bg-gradient-to-b from-danger to-warning"
+                action={<Link href="/opportunities" className="text-xs font-semibold text-accent hover:text-accent/80 transition-colors">Browse all →</Link>}
+              />
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 mb-3">
+                {[['bg-danger','Under 3 days'],['bg-warning','Under 7 days'],['bg-accent','More time']].map(([c,l]) => (
+                  <div key={l} className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${c} inline-block`} />
+                    <span className="text-[11px] text-muted font-medium">{l}</span>
+                  </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[1,2,3,4].map(i => <SkeletonRow key={i} />)}
-              </div>
-            </div>
 
-          ) : !hasData ? (
-            /* Empty state */
-            <div className="dash-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', animationDelay: '60ms' }}>
-              <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'linear-gradient(135deg, rgba(47,230,214,0.12), rgba(255,107,74,0.12))', border: '1px solid #2a3566', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', marginBottom: '24px' }}>🔍</div>
-              <h2 style={{ fontFamily: 'var(--font-sora)', fontSize: '22px', fontWeight: 700, color: '#ffffff', marginBottom: '10px' }}>Nothing tracked yet</h2>
-              <p style={{ fontSize: '14px', color: '#a9b4d0', maxWidth: '360px', lineHeight: 1.6, marginBottom: '28px' }}>
-                Bookmark opportunities or set a status on the Browse page — they'll show up here with deadline reminders.
-              </p>
-              <Link href="/opportunities" style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                padding: '12px 24px', background: 'linear-gradient(135deg, #2fe6d6, #60a5fa)',
-                borderRadius: '12px', fontSize: '14px', fontWeight: 700,
-                fontFamily: 'var(--font-sora)', color: '#0b1330', textDecoration: 'none',
-                boxShadow: '0 4px 24px rgba(47,230,214,0.25)',
-              }}>Browse Opportunities →</Link>
-            </div>
-
-          ) : (
-            <>
-              {/* ── Stat Cards ── */}
-              <section className="dash-in" style={{ marginBottom: '48px', animationDelay: '40ms' }}>
-                <SectionHeader title="Overview" accent="linear-gradient(180deg,#2fe6d6,#60a5fa)" />
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <StatCard icon={STAT_ICONS.bookmarked}  label="Bookmarked"  count={bookmarkedCount}  color="#f2c94c" bg="rgba(242,201,76,0.10)"  border="rgba(242,201,76,0.25)" />
-                  <StatCard icon={STAT_ICONS.applied}     label="Applied"     count={appliedCount}     color="#60a5fa" bg="rgba(96,165,250,0.10)"  border="rgba(96,165,250,0.25)" />
-                  <StatCard icon={STAT_ICONS.shortlisted} label="Shortlisted" count={shortlistedCount} color="#a78bfa" bg="rgba(167,139,250,0.10)" border="rgba(167,139,250,0.25)" />
-                  <StatCard icon={STAT_ICONS.completed}   label="Completed"   count={completedCount}   color="#2fe6d6" bg="rgba(47,230,214,0.10)"  border="rgba(47,230,214,0.25)" />
+              {upcoming.length === 0 ? (
+                <div className="card bg-surface px-5 py-8 text-center">
+                  <p className="text-sm text-muted">No upcoming deadlines — great job staying on top of things! 🎉</p>
                 </div>
-              </section>
-
-              {/* ── Upcoming Deadlines ── */}
-              <section className="dash-in" style={{ marginBottom: '48px', animationDelay: '100ms' }}>
-                <SectionHeader
-                  title="Upcoming Deadlines"
-                  accent="linear-gradient(180deg,#ff6b4a,#f2c94c)"
-                  action={<Link href="/opportunities" style={{ fontSize: '12px', fontWeight: 600, color: '#2fe6d6', textDecoration: 'none' }}>Browse all →</Link>}
-                />
-
-                {/* Legend */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
-                  {[['#ff6b4a','Under 3 days'],['#f2c94c','Under 7 days'],['#2fe6d6','More time']].map(([c,l]) => (
-                    <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: c, display: 'inline-block' }} />
-                      <span style={{ fontSize: '11px', color: '#a9b4d0', fontWeight: 500 }}>{l}</span>
-                    </div>
-                  ))}
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {upcoming.map(item => <DeadlineRow key={item.tracking_id} item={item} />)}
                 </div>
+              )}
+            </section>
 
-                {upcoming.length === 0 ? (
-                  <div style={{ padding: '32px', background: '#141c3d', border: '1px solid #2a3566', borderRadius: '16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '14px', color: '#a9b4d0' }}>No upcoming deadlines — great job staying on top of things! 🎉</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {upcoming.map(item => <DeadlineRow key={item.tracking_id} item={item} />)}
-                  </div>
-                )}
-              </section>
+            {/* ── My Tracker ── */}
+            <section className="dash-in" style={{ animationDelay: '160ms' }}>
+              <SectionHeader
+                title="My Tracker"
+                accentCls="bg-gradient-to-b from-violet-400 to-primary"
+              />
 
-              {/* ── My Tracker ── */}
-              <section className="dash-in" style={{ animationDelay: '160ms' }}>
-                <SectionHeader
-                  title="My Tracker"
-                  accent="linear-gradient(180deg,#a78bfa,#60a5fa)"
-                />
-
-                {(['interested','applied','shortlisted','completed'] as DBStatus[]).map(status => {
-                  const items = grouped[status]
-                  if (items.length === 0) return null
-                  const meta = STATUS_META[status]
-                  return (
-                    <div key={status} style={{ marginBottom: '28px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        <span style={{
-                          fontSize: '11px', fontFamily: 'var(--font-inter)', fontWeight: 700,
-                          textTransform: 'uppercase', letterSpacing: '0.06em',
-                          color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`,
-                          borderRadius: '100px', padding: '3px 12px',
-                        }}>{meta.label}</span>
-                        <span style={{ fontSize: '12px', color: '#a9b4d0' }}>{items.length}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                        {items.map(item => (
-                          <TrackerRow key={item.tracking_id} item={item} onChangeStatus={handleChangeStatus} />
-                        ))}
-                      </div>
+              {(['interested','applied','shortlisted','completed'] as DBStatus[]).map(status => {
+                const items = grouped[status]
+                if (items.length === 0) return null
+                const meta = STATUS_META[status]
+                return (
+                  <div key={status} className="mb-7">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className={`badge ${meta.bg} ${meta.text} ${meta.border}`}>{meta.label}</span>
+                      <span className="text-xs text-muted">{items.length}</span>
                     </div>
-                  )
-                })}
-
-                {/* Bookmarked but no status */}
-                {noStatus.length > 0 && (
-                  <div style={{ marginBottom: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <span style={{
-                        fontSize: '11px', fontFamily: 'var(--font-inter)', fontWeight: 700,
-                        textTransform: 'uppercase', letterSpacing: '0.06em',
-                        color: '#a9b4d0', background: 'rgba(169,180,208,0.1)', border: '1px solid rgba(169,180,208,0.2)',
-                        borderRadius: '100px', padding: '3px 12px',
-                      }}>Bookmarked / No Status</span>
-                      <span style={{ fontSize: '12px', color: '#a9b4d0' }}>{noStatus.length}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                      {noStatus.map(item => (
+                    <div className="flex flex-col gap-1.5">
+                      {items.map(item => (
                         <TrackerRow key={item.tracking_id} item={item} onChangeStatus={handleChangeStatus} />
                       ))}
                     </div>
                   </div>
-                )}
-              </section>
-            </>
-          )}
-        </main>
-      </div>
-    </>
+                )
+              })}
+
+              {/* Bookmarked but no status */}
+              {noStatus.length > 0 && (
+                <div className="mb-7">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="badge bg-surface2 text-muted border-line">Bookmarked / No Status</span>
+                    <span className="text-xs text-muted">{noStatus.length}</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {noStatus.map(item => (
+                      <TrackerRow key={item.tracking_id} item={item} onChangeStatus={handleChangeStatus} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
+    </div>
   )
 }

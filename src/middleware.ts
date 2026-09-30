@@ -29,7 +29,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isProtected =
-    pathname.startsWith('/dashboard') || pathname.startsWith('/admin')
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/opportunities') ||
+    pathname.startsWith('/onboarding')
 
   if (!user && isProtected) {
     const loginUrl = request.nextUrl.clone()

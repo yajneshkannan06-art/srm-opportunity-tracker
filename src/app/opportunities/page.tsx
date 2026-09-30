@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatDistanceToNow, isPast } from 'date-fns'
+import { DEPARTMENTS } from '@/lib/constants'
+import { isEligible, scoreOpportunity, type Profile } from '@/lib/recommend'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +30,8 @@ interface Opportunity {
   organization: string
   external_link: string
   created_at: string
+  departments: string[]
+  is_free: boolean
 }
 
 interface UserTracking {
@@ -59,11 +64,11 @@ const STATUS_OPTIONS: { value: OpportunityStatus; label: string }[] = [
 ]
 
 const TYPE_COLORS: Record<OpportunityType, { bg: string; text: string; border: string }> = {
-  internship:    { bg: 'bg-cyan-500/15',   text: 'text-cyan-300',   border: 'border-cyan-500/30' },
-  workshop:      { bg: 'bg-violet-500/15', text: 'text-violet-300', border: 'border-violet-500/30' },
-  hackathon:     { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/30' },
-  certification: { bg: 'bg-emerald-500/15',text: 'text-emerald-300',border: 'border-emerald-500/30' },
-  competition:   { bg: 'bg-rose-500/15',   text: 'text-rose-300',   border: 'border-rose-500/30' },
+  internship:    { bg: 'bg-accent/10',    text: 'text-accent',    border: 'border-accent/25' },
+  workshop:      { bg: 'bg-violet-400/10',text: 'text-violet-300',border: 'border-violet-400/25' },
+  hackathon:     { bg: 'bg-warning/10',   text: 'text-warning',   border: 'border-warning/25' },
+  certification: { bg: 'bg-success/10',   text: 'text-success',   border: 'border-success/25' },
+  competition:   { bg: 'bg-danger/10',    text: 'text-danger',    border: 'border-danger/25' },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,7 +87,7 @@ function TypeBadge({ type }: { type: OpportunityType }) {
   const c = TYPE_COLORS[type] ?? TYPE_COLORS.internship
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider border ${c.bg} ${c.text} ${c.border}`}
+      className={`badge ${c.bg} ${c.text} ${c.border}`}
     >
       {type}
     </span>
@@ -92,12 +97,12 @@ function TypeBadge({ type }: { type: OpportunityType }) {
 function DeadlineBadge({ iso }: { iso: string }) {
   const { label, urgent } = formatDeadline(iso)
   if (label === 'Closed') {
-    return <span className="text-slate-500 text-xs">Closed</span>
+    return <span className="text-muted text-xs">Closed</span>
   }
   return (
-    <span className={`text-xs font-medium ${urgent ? 'text-orange-400' : 'text-slate-400'}`}>
+    <span className={`text-xs font-medium ${urgent ? 'text-warning' : 'text-muted'}`}>
       {urgent && (
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-400 mr-1.5 animate-pulse" />
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning mr-1.5 animate-pulse" />
       )}
       {label}
     </span>
@@ -106,7 +111,7 @@ function DeadlineBadge({ iso }: { iso: string }) {
 
 function SkillTag({ skill }: { skill: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-700/60 text-slate-300 border border-slate-600/40">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-surface2 text-muted border border-line/60">
       {skill}
     </span>
   )
@@ -117,21 +122,26 @@ function OpportunityCard({
   tracking,
   onToggleBookmark,
   onChangeStatus,
+  matchReasons,
 }: {
   opp: Opportunity
   tracking?: UserTracking
   onToggleBookmark: (oppId: string, currentBookmarked: boolean) => void
   onChangeStatus: (oppId: string, newStatus: OpportunityStatus) => void
+  matchReasons?: string[]
 }) {
   const isBookmarked = tracking?.is_bookmarked ?? false
   const status = (tracking?.status as OpportunityStatus) ?? ''
 
   return (
-    <article className="group relative flex flex-col bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 hover:border-cyan-500/40 hover:bg-slate-800/80 transition-all duration-200 hover:shadow-[0_0_24px_rgba(6,182,212,0.08)]">
-      {/* Top row: Type badge, Deadline & Bookmark */}
+    <article className="group relative flex flex-col card bg-surface p-5 hover:border-primary/30 hover:bg-surface2 transition-all duration-200 hover:shadow-glow hover:-translate-y-0.5">
+      {/* Top row: Type badge, FREE badge, Deadline & Bookmark */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <Link href={`/opportunities/${opp.id}`} className="flex-1">
+        <Link href={`/opportunities/${opp.id}`} className="flex-1 flex items-center gap-2">
           <TypeBadge type={opp.type} />
+          {opp.is_free && (
+            <span className="badge bg-success/10 text-success border-success/25">FREE</span>
+          )}
         </Link>
         <div className="flex items-center gap-2">
           <DeadlineBadge iso={opp.deadline} />
@@ -139,10 +149,10 @@ function OpportunityCard({
             id={`bookmark-btn-${opp.id}`}
             onClick={() => onToggleBookmark(opp.id, isBookmarked)}
             title={isBookmarked ? 'Remove bookmark' : 'Bookmark opportunity'}
-            className={`p-1.5 rounded-lg border transition-colors ${
+            className={`p-1.5 rounded-lg border transition-all duration-150 ${
               isBookmarked
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
-                : 'bg-slate-700/40 border-slate-600/40 text-slate-400 hover:text-amber-400 hover:bg-slate-700/80'
+                ? 'bg-warning/15 border-warning/35 text-warning hover:bg-warning/25'
+                : 'bg-surface2 border-line text-muted hover:text-warning hover:border-warning/30'
             }`}
           >
             <svg
@@ -164,21 +174,25 @@ function OpportunityCard({
 
       {/* Clickable body → detail page */}
       <Link href={`/opportunities/${opp.id}`} className="flex-1 flex flex-col min-w-0">
+        {/* Match reasons */}
+        {matchReasons && matchReasons.length > 0 && (
+          <p className="text-[11px] text-accent mb-2">✨ Matches: {matchReasons.slice(0, 3).join(', ')}</p>
+        )}
         {/* Title */}
-        <h2 className="text-base font-semibold text-white leading-snug mb-1 group-hover:text-cyan-100 transition-colors">
+        <h2 className="text-base font-semibold text-ink leading-snug mb-1 group-hover:text-primaryHover transition-colors">
           {opp.title}
         </h2>
 
         {/* Organization */}
-        <p className="text-xs text-slate-400 mb-3 flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <p className="text-xs text-muted mb-3 flex items-center gap-1.5">
+          <svg className="w-3 h-3 text-muted/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
           {opp.organization}
         </p>
 
         {/* Description */}
-        <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2 flex-1">
+        <p className="text-xs text-muted/70 leading-relaxed mb-4 line-clamp-2 flex-1">
           {opp.description}
         </p>
 
@@ -196,32 +210,32 @@ function OpportunityCard({
       </Link>
 
       {/* Status & CTA Controls Row */}
-      <div className="mt-auto pt-3 border-t border-slate-700/40 flex items-center justify-between gap-2">
+      <div className="mt-auto pt-3 border-t border-line/50 flex items-center justify-between gap-2">
         {/* Status Dropdown */}
         <div className="relative">
           <select
             id={`status-select-${opp.id}`}
             value={status}
             onChange={(e) => onChangeStatus(opp.id, e.target.value as OpportunityStatus)}
-            className={`appearance-none text-xs rounded-lg px-2.5 py-1.5 pr-7 font-medium border focus:outline-none transition cursor-pointer ${
+            className={`appearance-none text-xs rounded-lg px-2.5 py-1.5 pr-7 font-medium border focus:outline-none transition-all duration-150 cursor-pointer ${
               status === 'interested'
-                ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                ? 'bg-primary/15 border-primary/35 text-primaryHover'
                 : status === 'applied'
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                ? 'bg-warning/10 border-warning/30 text-warning'
                 : status === 'shortlisted'
-                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                ? 'bg-violet-400/10 border-violet-400/30 text-violet-300'
                 : status === 'completed'
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                : 'bg-slate-700/40 border-slate-600/40 text-slate-400 hover:border-slate-500'
+                ? 'bg-success/10 border-success/30 text-success'
+                : 'bg-surface2 border-line text-muted hover:border-muted/50'
             }`}
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-slate-800 text-slate-200">
+              <option key={opt.value} value={opt.value} className="bg-surface text-ink">
                 {opt.label}
               </option>
             ))}
           </select>
-          <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -232,7 +246,7 @@ function OpportunityCard({
             href={opp.external_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors group/link"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent/80 transition-colors group/link"
           >
             Apply
             <svg className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -240,7 +254,7 @@ function OpportunityCard({
             </svg>
           </a>
         ) : (
-          <span className="text-xs text-slate-600 italic">No link available</span>
+          <span className="text-xs text-muted/40 italic">No link available</span>
         )}
       </div>
     </article>
@@ -249,17 +263,17 @@ function OpportunityCard({
 
 function SkeletonCard() {
   return (
-    <div className="flex flex-col bg-slate-800/30 border border-slate-700/30 rounded-2xl p-5 animate-pulse">
+    <div className="flex flex-col card bg-surface p-5 animate-pulse">
       <div className="flex justify-between mb-3">
-        <div className="h-5 w-24 rounded-full bg-slate-700/60" />
-        <div className="h-4 w-16 rounded bg-slate-700/60" />
+        <div className="h-5 w-24 rounded-full bg-line" />
+        <div className="h-4 w-16 rounded bg-line" />
       </div>
-      <div className="h-5 w-3/4 rounded bg-slate-700/60 mb-2" />
-      <div className="h-3 w-1/2 rounded bg-slate-700/40 mb-4" />
-      <div className="h-3 w-full rounded bg-slate-700/30 mb-1" />
-      <div className="h-3 w-5/6 rounded bg-slate-700/30 mb-4" />
+      <div className="h-5 w-3/4 rounded bg-line mb-2" />
+      <div className="h-3 w-1/2 rounded bg-surface2 mb-4" />
+      <div className="h-3 w-full rounded bg-surface2 mb-1" />
+      <div className="h-3 w-5/6 rounded bg-surface2 mb-4" />
       <div className="flex gap-1.5">
-        {[1, 2, 3].map((i) => <div key={i} className="h-5 w-16 rounded-md bg-slate-700/50" />)}
+        {[1, 2, 3].map((i) => <div key={i} className="h-5 w-16 rounded-md bg-line" />)}
       </div>
     </div>
   )
@@ -268,6 +282,7 @@ function SkeletonCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OpportunitiesPage() {
+  const router = useRouter()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [trackingMap, setTrackingMap] = useState<Record<string, UserTracking>>({})
   const [userId, setUserId] = useState<string | null>(null)
@@ -278,6 +293,9 @@ export default function OpportunitiesPage() {
   const [typeFilter, setTypeFilter] = useState<OpportunityType | 'all'>('all')
   const [skillSearch, setSkillSearch] = useState('')
   const [sort, setSort] = useState<SortOption>('deadline')
+  const [deptFilter, setDeptFilter] = useState<string[]>([])
+  const [freeOnly, setFreeOnly] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -290,10 +308,17 @@ export default function OpportunitiesPage() {
         const currentUserId = user?.id ?? null
         setUserId(currentUserId)
 
+        if (currentUserId) {
+          const { data: prof } = await supabase.from('student_profiles')
+            .select('department, interests, skills').eq('user_id', currentUserId).maybeSingle()
+          if (!prof) { router.replace('/onboarding'); return }
+          setProfile(prof)
+        }
+
         // 2. Fetch opportunities
         const { data: opps, error: fetchError } = await supabase
           .from('opportunities')
-          .select('id, title, type, description, skills, deadline, organization, external_link, created_at')
+          .select('id, title, type, description, skills, deadline, organization, external_link, created_at, departments, is_free')
 
         if (fetchError) {
           setError(fetchError.message)
@@ -321,15 +346,15 @@ export default function OpportunitiesPage() {
             setTrackingMap(map)
           }
         }
-      } catch (err: any) {
-        setError(err?.message || String(err))
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err))
       } finally {
         setLoading(false)
       }
     }
 
     loadData()
-  }, [])
+  }, [router])
 
   // Helper: Get or ensure valid User ID
   const ensureUserId = async (): Promise<string | null> => {
@@ -478,6 +503,16 @@ export default function OpportunitiesPage() {
       )
     }
 
+    // Free-only filter
+    if (freeOnly) result = result.filter((o) => o.is_free)
+
+    // Department filter — opps with no departments listed are shown to everyone
+    if (deptFilter.length > 0) {
+      result = result.filter((o) =>
+        !o.departments?.length || o.departments.some((d) => deptFilter.includes(d))
+      )
+    }
+
     // Sort
     result.sort((a, b) => {
       if (sort === 'deadline') {
@@ -487,33 +522,43 @@ export default function OpportunitiesPage() {
     })
 
     return result
-  }, [opportunities, typeFilter, skillSearch, sort])
+  }, [opportunities, typeFilter, skillSearch, sort, freeOnly, deptFilter])
+
+  const recommended = useMemo(() => {
+    if (!profile) return []
+    return opportunities
+      .filter((o) => !isPast(new Date(o.deadline)) && isEligible(o, profile.department))
+      .map((o) => ({ opp: o, ...scoreOpportunity(o, profile) }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(a.opp.deadline).getTime() - new Date(b.opp.deadline).getTime())
+      .slice(0, 6)
+  }, [opportunities, profile])
 
   const totalCount = opportunities.length
 
   return (
-    <div className="min-h-screen bg-[#0b0f1a]">
+    <div className="min-h-screen bg-base">
       {/* ── Header ── */}
-      <header className="border-b border-slate-800 bg-[#0b0f1a]/80 backdrop-blur-md sticky top-0 z-10">
+      <header className="border-b border-line bg-surface/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl font-display font-bold text-ink tracking-tight">
               Opportunities
             </h1>
             {!loading && (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-muted mt-0.5">
                 {filtered.length} of {totalCount} results
               </p>
             )}
           </div>
           {/* Sort */}
           <div className="flex items-center gap-2">
-            <label htmlFor="sort-select" className="text-xs text-slate-400 shrink-0 hidden sm:block">Sort by</label>
+            <label htmlFor="sort-select" className="text-xs text-muted shrink-0 hidden sm:block">Sort by</label>
             <select
               id="sort-select"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortOption)}
-              className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition"
+              className="input w-auto py-2 px-3 text-sm"
             >
               <option value="deadline">Deadline (soonest)</option>
               <option value="newest">Newest first</option>
@@ -524,41 +569,41 @@ export default function OpportunitiesPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* ── Filter Bar ── */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
+        <div className="flex flex-wrap gap-2.5 mb-8">
           {/* Type dropdown */}
           <div className="relative">
             <select
               id="type-filter"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as OpportunityType | 'all')}
-              className="appearance-none w-full sm:w-48 bg-slate-800/80 border border-slate-700/80 text-slate-300 text-sm rounded-xl pl-4 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition cursor-pointer"
+              className="input appearance-none w-full sm:w-44 pl-4 pr-9 cursor-pointer"
             >
               {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value} className="bg-surface">{o.label}</option>
               ))}
             </select>
-            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
 
           {/* Skill search */}
-          <div className="relative flex-1 max-w-sm">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               id="skill-search"
               type="text"
-              placeholder="Filter by skill (e.g. React)"
+              placeholder="Filter by skill…"
               value={skillSearch}
               onChange={(e) => setSkillSearch(e.target.value)}
-              className="w-full bg-slate-800/80 border border-slate-700/80 text-slate-300 text-sm rounded-xl pl-9 pr-4 py-2.5 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition"
+              className="input pl-9 pr-4"
             />
             {skillSearch && (
               <button
                 onClick={() => setSkillSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors"
                 aria-label="Clear skill filter"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -568,11 +613,42 @@ export default function OpportunitiesPage() {
             )}
           </div>
 
+          {/* Free-only toggle */}
+          <label className="input inline-flex items-center gap-2 w-auto cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={freeOnly}
+              onChange={(e) => setFreeOnly(e.target.checked)}
+              className="accent-success"
+            />
+            <span className="text-sm text-ink">Free only</span>
+          </label>
+
+          {/* Department filter */}
+          <details className="relative">
+            <summary className="input list-none cursor-pointer select-none text-sm text-ink w-auto">
+              Departments{deptFilter.length > 0 && <span className="ml-1 text-primary">({deptFilter.length})</span>}
+            </summary>
+            <div className="absolute z-20 mt-2 w-56 max-h-64 overflow-auto card bg-surface p-2 shadow-xl scrollbar-none">
+              {DEPARTMENTS.map((d) => (
+                <label key={d} className="flex items-center gap-2 px-2 py-1.5 text-sm text-ink hover:bg-surface2 rounded-lg cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={deptFilter.includes(d)}
+                    onChange={() => setDeptFilter((p) => p.includes(d) ? p.filter((x) => x !== d) : [...p, d])}
+                    className="accent-primary"
+                  />
+                  {d}
+                </label>
+              ))}
+            </div>
+          </details>
+
           {/* Active filter pill */}
-          {(typeFilter !== 'all' || skillSearch) && (
+          {(typeFilter !== 'all' || skillSearch || freeOnly || deptFilter.length > 0) && (
             <button
-              onClick={() => { setTypeFilter('all'); setSkillSearch('') }}
-              className="self-start sm:self-center inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 border border-slate-700 rounded-full px-3 py-1.5 transition"
+              onClick={() => { setTypeFilter('all'); setSkillSearch(''); setFreeOnly(false); setDeptFilter([]) }}
+              className="self-center inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink bg-surface2 border border-line hover:border-muted/50 rounded-full px-3 py-1.5 transition-all duration-150"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -584,12 +660,34 @@ export default function OpportunitiesPage() {
 
         {/* ── Error ── */}
         {error && (
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-xl px-5 py-4 mb-6">
+          <div className="flex items-center gap-3 bg-danger/10 border border-danger/30 text-danger text-sm rounded-xl px-5 py-4 mb-6">
             <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             Failed to load opportunities: {error}
           </div>
+        )}
+
+        {/* ── Recommended ── */}
+        {!loading && recommended.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-lg font-display font-bold text-ink mb-4 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse" />
+              Recommended for you
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommended.map(({ opp, reasons }) => (
+                <OpportunityCard
+                  key={opp.id}
+                  opp={opp}
+                  tracking={trackingMap[opp.id]}
+                  onToggleBookmark={handleToggleBookmark}
+                  onChangeStatus={handleChangeStatus}
+                  matchReasons={reasons}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* ── Grid ── */}
@@ -599,13 +697,13 @@ export default function OpportunitiesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="w-16 h-16 rounded-2xl card flex items-center justify-center mb-5">
+              <svg className="w-8 h-8 text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <p className="text-slate-400 font-medium">No opportunities found</p>
-            <p className="text-slate-600 text-sm mt-1">Try adjusting your filters</p>
+            <p className="text-ink font-semibold">No opportunities found</p>
+            <p className="text-muted text-sm mt-1">Try adjusting your filters</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -616,6 +714,7 @@ export default function OpportunitiesPage() {
                 tracking={trackingMap[opp.id]}
                 onToggleBookmark={handleToggleBookmark}
                 onChangeStatus={handleChangeStatus}
+                matchReasons={undefined}
               />
             ))}
           </div>

@@ -33,10 +33,10 @@ export default function Navbar() {
     return (
       <Link
         href={href}
-        className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+        className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-all duration-150 ${
           active
-            ? 'text-white bg-white/10'
-            : 'text-slate-400 hover:text-white hover:bg-white/5'
+            ? 'text-primary bg-primary/10 border border-primary/20'
+            : 'text-muted hover:text-ink hover:bg-white/5'
         }`}
       >
         {label}
@@ -50,19 +50,19 @@ export default function Navbar() {
   }
 
   // Hide navbar on auth pages
-  if (pathname === '/login' || pathname === '/signup' || pathname === '/') return null
+  if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname === '/onboarding') return null
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-slate-800 bg-[#0b0f1a]/90 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 gap-4">
         {/* Brand */}
-        <Link href="/opportunities" className="flex items-center gap-2 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
-            <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <Link href="/opportunities" className="flex items-center gap-2.5 shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-sm font-semibold text-white hidden sm:block">SRM Tracker</span>
+          <span className="text-sm font-semibold text-ink hidden sm:block font-display">SRM Tracker</span>
         </Link>
 
         {/* Desktop nav */}
@@ -72,10 +72,10 @@ export default function Navbar() {
           {role === 'admin' && (
             <Link
               href="/admin"
-              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-all duration-150 ${
                 pathname.startsWith('/admin')
-                  ? 'text-purple-300 bg-purple-500/15'
-                  : 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10'
+                  ? 'text-primaryHover bg-primary/10 border border-primary/20'
+                  : 'text-muted hover:text-primaryHover hover:bg-primary/5'
               }`}
             >
               Admin
@@ -86,18 +86,19 @@ export default function Navbar() {
         {/* Right side */}
         <div className="flex items-center gap-2">
           {email && (
-            <span className="hidden md:block text-xs text-slate-500 max-w-[160px] truncate">{email}</span>
+            <span className="hidden md:block text-xs text-muted max-w-[160px] truncate">{email}</span>
           )}
           <button
             onClick={handleSignOut}
-            className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            className="btn-secondary text-xs px-3 py-1.5"
           >
             Sign out
           </button>
           {/* Mobile menu toggle */}
           <button
-            className="sm:hidden p-1.5 text-slate-400 hover:text-white"
+            className="sm:hidden p-1.5 text-muted hover:text-ink transition-colors"
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               {menuOpen
@@ -111,13 +112,13 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="sm:hidden border-t border-slate-800 px-4 py-3 flex flex-col gap-1 bg-[#0b0f1a]">
+        <div className="sm:hidden border-t border-line px-4 py-3 flex flex-col gap-1 bg-surface">
           {navLink('/opportunities', 'Opportunities')}
           {navLink('/dashboard', 'Dashboard')}
           {role === 'admin' && (
             <Link
               href="/admin"
-              className="text-sm font-medium px-3 py-1.5 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
+              className="text-sm font-medium px-3 py-1.5 rounded-lg text-muted hover:text-primaryHover hover:bg-primary/5 transition-colors"
             >
               Admin
             </Link>
